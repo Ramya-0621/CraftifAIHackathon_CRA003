@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HALO: fall-aware home simulator</title>
+<style>
+:root{--bg:#f3f1ee;--panel:#fff;--ink:#1d1b2e;--mute:#6b6880;--line:#d9d5e0;--ok:#16806b;--warn:#c27a00;--bad:#c4372c;--calm:#4b5fd0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12111c;--panel:#1c1a2b;--ink:#ebe9f5;--mute:#9b98b3;--line:#34314a;--ok:#4cc9a8;--warn:#f0b43c;--bad:#ff6b5e;--calm:#8c9bff}}
+:root[data-theme="dark"]{--bg:#0a1224;--panel:#101b33;--ink:#e8f0ff;--mute:#8ea2c4;--line:#1f3258;--ok:#34d399;--warn:#fbbf24;--bad:#ff5d6c;--calm:#38bdf8}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:30px;margin:0;letter-spacing:-.5px}
+.sub{color:var(--mute);margin:2px 0 18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+h2{font-size:15px;margin:0 0 8px;font-weight:700}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--calm)}button:focus-visible{outline:2px solid var(--calm);outline-offset:2px}
+button.on{background:var(--ink);color:var(--bg)}
+button.danger{border-color:var(--bad);color:var(--bad)}
+.stage{font-size:22px;font-weight:700;margin:6px 0 0}
+.cap{color:var(--mute);font-size:13px}
+.log{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;height:190px;overflow:auto;background:var(--bg);border-radius:8px;padding:8px;white-space:pre-wrap}
+.req{display:grid;grid-template-columns:34px 1fr auto;gap:6px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.req:last-child{border:0}.req b{font-family:ui-monospace,Menlo,monospace}
+.pass{color:var(--ok)}.wait{color:var(--mute)}
+.wide{grid-column:1/-1}.phone{border:6px solid var(--ink);border-radius:24px;padding:12px;max-width:270px;margin:6px auto;text-align:center;min-height:130px}.phone.al{border-color:var(--bad)}.bar{height:10px;border-radius:5px;background:var(--calm);margin:2px 0 8px}.tl{font:12px/1.6 ui-monospace,Menlo,monospace;max-height:150px;overflow:auto}.big{font-size:22px;font-weight:700}.nav{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.logo{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.logo b{font-size:22px;letter-spacing:1px}.pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pill{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--panel)}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}.kpi .k{font-size:12px;color:var(--mute)}.kpi .v{font-size:18px;font-weight:700}.emg{display:none;border:1px solid var(--bad);background:rgba(255,93,108,.12);border-radius:14px;padding:12px;margin-bottom:14px}.emg.on{display:block}button.on{background:var(--calm);color:#04121f;border-color:var(--calm)}h1{display:none}
+svg{width:100%;height:auto;display:block}
+</style></head><body><main>
+<header class="nav"><div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="var(--calm)" stroke-width="3"/><circle cx="13" cy="13" r="3.5" fill="var(--calm)"/></svg><b>HALO</b><span class="cap">Human Assistance and Live Observation</span></div><div class="pills"><span class="pill" id="pSys"></span><span class="pill" id="pMq"></span><span class="pill" id="pEsp"></span><span class="pill" id="pClk"></span><button id="fsb">Fullscreen</button></div></header><div class="kpis" id="kp"></div><div class="emg" id="emg" role="alert"></div>
+<p class="sub">The camera never decides alone. The room asks first, and says so when it can't see. Simulation of the PipeGen to MQTT to ESP32 loop. Every value here is simulated; the hardware build must feed these panels from real MQTT and UART.</p>
+<div class="grid">
+ <div class="card"><h2>Pipeline side (PipeGen): skeleton only, no pixels</h2>
+  <svg viewBox="0 0 320 200" role="img" aria-label="Skeleton keypoints"><rect width="320" height="200" rx="8" fill="var(--bg)"/><g id="sk" stroke="var(--calm)" stroke-width="4" stroke-linecap="round" fill="none"></g><g id="jn" fill="var(--ink)"></g><text id="camtxt" x="160" y="100" text-anchor="middle" fill="var(--bad)" font-size="18" font-weight="700"></text></svg>
+  <div class="btns" id="poses"><button data-p="standing" class="on">Standing</button><button data-p="sitting">Sitting on chair</button><button data-p="down">Lying on floor</button></div>
+  <div class="btns"><button id="wave">Wave arm</button><button id="press">Press big button</button><button id="snd">Sound: on</button><button id="tst">Test alarm sound</button><button id="cam" class="danger">Unplug camera</button></div>
+  <div class="btns"><span class="cap">Clock speed:</span><button data-s="1" class="on sp">1x</button><button data-s="3" class="sp">3x</button><button data-s="6" class="sp">6x</button></div>
+  <p class="cap" style="margin:8px 0 0">Shortcuts: 1 standing, 2 sitting, 3 lying, B button, W wave. Sound plays automatically on alerts; click anywhere once if your browser blocks audio.</p><p class="cap" id="pub" style="margin:8px 0 0"></p></div>
+ <div class="card"><h2>Board side (FirmGen): ESP32 Halo device</h2>
+  <svg viewBox="0 0 320 200" role="img" aria-label="LED ring"><g id="ring"></g><text id="rt" x="160" y="104" text-anchor="middle" fill="var(--ink)" font-size="15" font-weight="700"></text></svg>
+  <div class="stage" id="stage">Stage 0: Watching</div>
+  <div class="cap" id="hw"></div><div class="cap" id="rt2"></div></div>
+ <div class="card"><h2>UART log (R7 acceptance evidence)</h2><div class="log" id="uart"></div></div>
+ <div class="card"><h2>MQTT feed (halo/room1/*)</h2><div class="log" id="mqtt"></div></div>
+ <div class="card"><h2>Room memory: Halo learns where lying down is normal</h2><div class="cap">Choose where the person is. Each zone has its own grace before Stage 1. After 2 false alarms in a zone, Halo adds 3 s there. The bathroom is safety-capped and never relaxes.</div><div class="btns" id="zb"></div><div class="btns"><label class="cap">Floor confirmation window <b id="cwv">3 s</b> <input type="range" id="cw" min="1" max="5" step="0.5" value="3"></label></div><div class="btns"><button id="nm"></button></div><p class="cap" id="zi" style="margin:8px 0 0"></p></div>
+<div class="card"><h2>Caregiver phone (BLE + MQTT, two-way)</h2><div class="phone" id="ph"></div><div class="btns" style="justify-content:center"><button id="ack">Caregiver: I'm on my way</button></div></div>
+<div class="card"><h2>Privacy ledger</h2><div id="pv"></div></div>
+<div class="card"><h2>Edge optimization (PipeGen precision)</h2><div class="btns" id="pr"><button data-pr="FP16" class="on">FP16 engine</button><button data-pr="INT8">INT8 engine</button></div><div id="pe" style="margin-top:8px"></div><p class="cap">Example numbers for layout only. Replace with the figures from PipeGen's speed, power and accuracy report.</p></div>
+<div class="card"><h2>Today at home (from skeletons only)</h2><div id="ty"></div></div>
+<div class="card"><h2>Incident timeline</h2><div class="tl" id="tl">No events yet.</div></div>
+<div class="card"><h2>Voice assistant</h2><div class="btns"><button id="vo" class="on">Voice: on</button><button id="mic">Start listening</button></div><div class="cap" id="vs" style="margin-top:6px">Idle</div><div class="btns"><input id="vt" placeholder="Type what the person says, e.g. I'm okay" style="flex:1;min-width:160px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="vsend">Send</button></div><div class="tl" id="vl" style="margin-top:8px"></div><p class="cap">Say "I'm okay" or "cancel" to cancel, "help" to escalate now, "stop alarm" to silence. The microphone needs browser permission; the typed box works anywhere.</p></div>
+<div class="card wide"><h2>Performance monitor</h2><div class="btns" style="margin:0"><span class="cap">Inference rate (newest frame only, stale frames dropped):</span><span id="fb" class="btns" style="margin:0"><button data-fps="5">5 fps</button><button data-fps="10" class="on">10 fps</button><button data-fps="20">20 fps</button></span></div><div class="grid" style="margin-top:10px"><div><div class="cap">Worst-case added decision delay at this rate: <b id="wd">100 ms</b></div><div class="cap" style="margin-top:8px">Simulator MQTT loopback latency (measured in this page)</div><div id="sp1"></div><div class="cap">MQTT messages per second (measured; publish-on-change cuts chatter)</div><div id="sp2"></div></div><div id="stg"></div></div></div>
+<div class="card wide"><h2>System health</h2><div id="hl"></div></div>
+<div class="card"><h2>Fault injection (safety console)</h2><div class="btns"><button id="fdup">Replay duplicate event</button><button id="fbad">Send invalid command</button><button id="fsil">Send silence command</button><button id="fmq" class="danger">Drop MQTT broker</button><button id="frb" class="danger">Reboot ESP32</button></div><p class="cap">Camera loss: use "Unplug camera". Each injection is logged on UART and in the ledger. The physical button at Stage 3 acknowledges and silences; it never erases the event.</p></div>
+<div class="card"><h2>Board state (halo/board/state, retained)</h2><div class="big" id="bs"></div><div id="bd" class="cap" style="margin-top:6px"></div></div>
+<div class="card wide"><h2>Event ledger: generated, received, acknowledged, resolved</h2><div class="btns" id="lf" style="margin:0 0 8px"><button data-f="all" class="on">All</button><button data-f="open">Open</button><button data-f="done">Resolved</button></div><div class="tl" id="lg" style="max-height:170px">No events yet.</div><p class="cap">Delivery here is at-most-once (QoS 0 style) and is not guaranteed. The 1 s heartbeat and the fail-safe to alarm cover message loss. Topics: halo/room1/state, halo/room1/heartbeat, halo/board/state, halo/board/command, halo/system/health.</p></div>
+<div class="card wide"><h2>Test matrix</h2><div id="tm"></div></div>
+<div class="card wide"><h2>Live traceability: requirement to evidence</h2><div id="reqs"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const J={standing:[[160,30],[160,55],[160,110],[145,160],[175,160],[135,80],[185,80],[145,175],[175,175]],
+sitting:[[160,60],[160,85],[170,125],[210,125],[210,170],[135,105],[185,105],[225,170],[225,170]],
+down:[[60,150],[90,150],[170,152],[230,140],[240,170],[110,135],[110,170],[255,150],[260,175]]};
+const E=[[0,1],[1,2],[2,3],[2,4],[1,5],[1,6],[3,7],[4,8]];
+let pose='standing',camOn=true,speed=1,T=0,downSince=null,lastHB=0,btn=false,waveUntil=-1;
+let st={stage:0,blind:false,since:0,down0:null,lastHB:0,sawDown:false};
+const R={};const reqs=[["R1","Subscribe to halo/+/state and heartbeat over MQTT"],["R2","Stage 1 within 200 ms of down, held >= 3 s"],["R3","Escalate at 8 s and 25 s via RTOS timer"],["R4","Cancel within 100 ms of button or standing"],["R5","Eyes offline after 3 s without heartbeat"],["R6","BLE alert advertised at Stage 3"],["R7","Every transition logged with timestamp"],["R8","Fail safe to Stage 3 if sight lost mid-escalation"]];
+const NAMES=["Stage 0: Watching","Stage 1: Concern (path lights on)","Stage 2: Asking 'are you OK?'","Stage 3: ESCALATED (BLE alert sent)"];
+function ts(){return (T/1000).toFixed(2).padStart(7)+"s"}
+function log(el,s){const d=$(el);d.textContent+=s+"\n";d.scrollTop=d.scrollHeight}
+function uart(s){log("uart","["+ts()+"] "+s);R.R7=1}
+function pass(k,ev){if(!R[k]){R[k]=ev||1;renderReq()}}
+function renderReq(){$("reqs").innerHTML=reqs.map(([k,t])=>`<div class="req"><b>${k}</b><span>${t}</span><span class="${R[k]?'pass':'wait'}">${R[k]?'pass'+(R[k]!==1?' ('+R[k]+')':''):'waiting'}</span></div>`).join("")}
+function drawSk(){const j=J[pose];$("sk").innerHTML=camOn?E.map(([a,b])=>`<line x1="${j[a][0]}" y1="${j[a][1]}" x2="${j[b][0]}" y2="${j[b][1]}"/>`).join(""):"";
+$("jn").innerHTML=camOn?j.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i==0?9:4}"/>`).join(""):"";
+$("camtxt").textContent=camOn?"":"NO CAMERA SIGNAL"}
+const ring=$("ring");for(let i=0;i<16;i++){const a=i/16*Math.PI*2;ring.insertAdjacentHTML("beforeend",`<circle id="l${i}" cx="${160+70*Math.cos(a)}" cy="${100+70*Math.sin(a)}" r="9" fill="var(--line)"/>`)}
+function led(color,mode){for(let i=0;i<16;i++){let c=color,o=1;
+ if(mode=="breathe")o=.35+.65*Math.abs(Math.sin(T/700));
+ if(mode=="strobe")o=Math.floor(T/150)%2?1:.1;
+ if(mode=="chase"){o=((i-Math.floor(T/120))%16+16)%16<4?1:.15}
+ if(mode=="soft")o=.35;
+ const e=$("l"+i);e.setAttribute("fill",c);e.setAttribute("opacity",o)}}
+function pub(topic,obj){msgs++;bytes+=JSON.stringify(obj).length+topic.length;log("mqtt","["+ts()+"] "+topic+" "+JSON.stringify(obj));if(mqttUp){const t=performance.now();rx(topic,obj);loop.push(performance.now()-t);if(loop.length>40)loop.shift()}else{drops++}}
+// board receive
+function rx(topic,m){if(topic.endsWith("heartbeat")){st.lastHB=T;pass("R1");if(st.blind){st.blind=false;uart("heartbeat restored, leaving COMMUNICATION_FAULT");if(st.cause=="mqtt")tk("net")}return}
+ pass("R1");const t0=performance.now();
+ if(m.state=="down"&&st.stage==0&&st.pre==null){st.pre=T;st.preG=grace[m.zone||"floor"];preLat=Math.max(1,Math.round(performance.now()-clickT));uart("PRELIM: possible fall seen, confirming for "+st.preG+" s (no alarm yet)");beep(520,.06)}if(m.state!="down")st.pre=null;const g=grace[m.zone||"floor"];if(m.state=="down"&&m.held_s>=g&&st.stage==0){st.down0=T-m.held_s*1000;st.zone=m.zone||"floor";st.extra=g-3;go(1);pass("R2",Math.max(1,Math.round(performance.now()-t0))+" ms")}
+ if(m.state=="standing"&&st.stage>0)cancel("standing",t0)}
+function go(n){st.stage=n;st.since=T;st.ack=false;st.pre=null;onStage(n);uart("STAGE "+(n-(n>0?1:0))+" -> "+n+" ("+NAMES[n]+")");if(n==3)pass("R6","adv 0xHA10")}
+function cancel(why,t0){const l=st.stage;if(l>0){ledgerRes(why);tk("cancel")}learn(why,l);st.stage=0;st.down0=null;st.ack=false;uart("CANCEL from stage "+l+" by "+why+": logged FALSE_ALARM");pass("R4",Math.max(1,Math.round(performance.now()-(t0||performance.now())))+" ms")}
+// pipeline: publish
+let lastPub=0,lastHBpub=0;
+function pipeline(){const now=T;if(!camOn)return;
+ if(pose=="down"){if(downSince==null)downSince=now}else{if(downSince!=null&&now-downSince<grace[zone]*1000&&st.stage==0)tk("lie");downSince=null}if(pose=="standing")tk("walk");if(pose=="sitting")tk("sit");
+ if(now-lastHBpub>=1000){lastHBpub=now;pub("halo/room1/heartbeat",{ts:Math.round(now),fps:camOn?prec.fps:0})}
+ const sig=pose+zone;if(now-lastPub>=1000/infFps&&(sig!=pubSig||now-lastPub>=1000||pose=="down")){lastPub=now;pubSig=sig;const held=downSince==null?0:(now-downSince)/1000;
+  const s=pose=="down"?"down":pose;const o={state:s,held_s:+held.toFixed(1),zone:zone,conf:0.91,ts:Math.round(now)};
+  pub("halo/room1/state",o);$("pub").textContent="publishing "+JSON.stringify(o)}}
+// board tick
+function board(){const now=T;
+ if(now-st.lastHB>3000&&!st.blind){st.blind=true;st.cause=!camOn?"camera":"mqtt";if(!camOn)tk("cam");uart("no heartbeat for 3 s -> COMMUNICATION_FAULT ("+st.cause+")");say("Warning. I cannot see the room.");pass("R5","3.0 s");
+  if(st.stage>0&&st.stage<3){uart("sight lost mid-escalation: FAIL SAFE");go(3);pass("R8")}}
+ if(st.stage>0&&st.down0!=null){const held=(now-st.down0)/1000;
+  if(st.stage==1&&held>=8+(st.extra||0)){go(2)}
+  if(st.stage==2&&held>=25+(st.extra||0)){go(3);pass("R3","8 s / 25 s")}}
+ if(btn){btn=false;if(st.stage==3){if(!st.ack){st.ack=true;uart("button: ALERT_ACKNOWLEDGED, event retained, buzzer off");say("Alarm silenced. The event is recorded.");ledgerAck("button")}}else if(st.stage>0)cancel("button")}
+ if(waveUntil>now&&st.stage==2){waveUntil=-1;cancel("wave gesture")}
+ render()}
+function render(){let color="var(--ok)",mode="soft",txt="",hw="Floor lights off | buzzer off | strobe off";
+ if(st.blind&&st.stage<3){color="var(--warn)";mode="chase";txt="I'M BLIND";hw="Amber ring chase | camera heartbeat lost"}
+ else if(st.stage==0){color=st.pre!=null?"var(--warn)":"var(--ok)";mode=st.pre!=null?"chase":"soft";if(st.pre!=null){hw="Possible fall: confirming, no alarm yet";txt=Math.max(0,st.preG-(T-st.pre)/1000).toFixed(1)+" s to confirm"}}
+ else if(st.stage==1){color="var(--calm)";mode="breathe";hw="Path lights ON | ring breathing"}
+ else if(st.stage==2){color="var(--warn)";mode="breathe";hw=night?"Quiet hours: light-only prompt, buzzer muted | waiting for wave or button":"Path lights ON | buzzer chirp pattern | waiting for wave or button"}
+ else if(st.ack){color="var(--ok)";mode="breathe";hw="Alarm silenced | caregiver acknowledged: help is on the way"}else{color="var(--bad)";mode="strobe";hw="STROBE | loud alarm | BLE alert advertising to caregiver phone"}
+ if(st.stage>0&&st.down0!=null)txt=((now=>(now-st.down0)/1000)(T)).toFixed(1)+" s down";
+ led(color,mode);$("rt").textContent=txt;$("hw").textContent=hw;
+ $("stage").textContent=(st.blind&&st.stage<3)?"Eyes offline":(st.pre!=null&&st.stage==0)?"Possible fall: confirming":NAMES[st.stage];
+ $("stage").style.color=st.stage==3?"var(--bad)":st.blind?"var(--warn)":"var(--ink)"}
+// controls
+$("poses").onclick=e=>{const p=e.target.dataset.p;if(!p)return;clickT=performance.now();pose=p;[...$("poses").children].forEach(b=>b.classList.toggle("on",b.dataset.p==p));drawSk()};
+$("press").onclick=()=>{btn=true};
+$("wave").onclick=()=>{waveUntil=T+1500;log("mqtt","["+ts()+"] halo/room1/gesture {\"gesture\":\"wave\"}")};
+$("cam").onclick=()=>{camOn=!camOn;$("cam").textContent=camOn?"Unplug camera":"Plug camera back in";drawSk();if(!camOn)uart("(demo) camera unplugged")};
+document.querySelectorAll(".sp").forEach(b=>b.onclick=()=>{speed=+b.dataset.s;document.querySelectorAll(".sp").forEach(x=>x.classList.toggle("on",x==b))});
+let last=performance.now();
+setInterval(()=>{const n=performance.now();T+=(n-last)*speed;last=n;pipeline();board()},50);
+let zone="floor",night=false,bytes=0,prec={n:"FP16",fps:28,w:11,m:"baseline"};
+const grace={floor:3,mat:12,pet:10,bath:2},fa={},tl=[],tally={standing:0,sitting:0,down:0};
+const ZN={floor:"Open floor",mat:"Yoga mat",pet:"Pet corner",bath:"Bathroom"};
+function learn(why,l){if(l<1)return;const z=st.zone||"floor";fa[z]=(fa[z]||0)+1;tl.push([ts(),"False alarm in "+ZN[z]+" ("+why+")"]);
+ if(fa[z]%2==0){if(z=="bath")uart("safety cap: bathroom grace never extended");else if(grace[z]<15){grace[z]+=3;uart("LEARNED: "+ZN[z]+" grace now "+grace[z]+" s");tl.push([ts(),"Learned: "+ZN[z]+" grace "+grace[z]+" s"])}}
+ ui()}
+function onStage(n){if(n==1){ledgerNew();tk("fall")}if(n==1)say("I noticed you may have fallen. I am checking on you.");if(n==2)say("Are you okay? Say I'm okay, or press the button.");if(n==3)say("No response. Alarm activated. Alerting your caregiver.");if(n==3)tk("esc");if(n>0)tl.push([ts(),NAMES[n]+" in "+ZN[st.zone||"floor"]]);ui()}
+function ui(){$("zb").innerHTML=Object.keys(ZN).map(k=>`<button data-z="${k}" class="${k==zone?'on':''}">${ZN[k]} (${grace[k]} s)</button>`).join("");
+ $("nm").textContent=night?"Quiet hours: ON (buzzer muted at Stage 2)":"Quiet hours: OFF";
+ $("zi").textContent="False alarms: "+(Object.keys(fa).map(k=>ZN[k]+" "+fa[k]).join(", ")||"none yet");
+ [...$("pr").children].forEach(b=>b.classList.toggle("on",b.dataset.pr==prec.n));
+ $("pe").innerHTML=`<div><span class="big">${prec.fps} fps</span> &nbsp; ${prec.w} W &nbsp; accuracy: ${prec.m}</div>`;
+ live()}
+function live(){const a=st.stage==3;$("ph").className="phone"+(a?" al":"");
+ $("ph").innerHTML=a?`<div class="big" style="color:var(--bad)">Fall alert</div><div>Room 1, ${ZN[st.zone||'floor']}</div><div class="cap">${st.ack?'You replied: on my way':'No response from the person'}</div>`:`<div class="big">All calm</div><div class="cap">${st.blind?'Warning: Halo cannot see':'Halo is watching'}</div>`;
+ $("pv").innerHTML=`<div>Pixels sent off device: <b>0 B</b></div><div>Frames saved: <b>0</b></div><div>Faces: <b>blurred before any buffer</b></div><div>Keypoint messages: <b>${(bytes/1024).toFixed(1)} KB</b> total</div>`;
+ const tot=Math.max(1,tally.standing+tally.sitting+tally.down);
+ $("ty").innerHTML=Object.keys(tally).map(k=>`<div class="cap">${k}: ${Math.round(tally[k])} s</div><div class="bar" style="width:${tally[k]/tot*100}%"></div>`).join("")+`<div class="cap">Incidents: ${tl.filter(x=>x[1].startsWith('Stage 3')).length} | false alarms: ${Object.values(fa).reduce((a,b)=>a+b,0)}</div>`;
+ if(tl.length){$("tl").innerHTML=tl.slice(-10).reverse().map(x=>x[0]+"  "+x[1]).join("<br>")}}
+$("zb").onclick=e=>{const z=e.target.closest("button")?.dataset.z;if(z){zone=z;ui()}};
+$("nm").onclick=()=>{night=!night;ui()};
+$("ack").onclick=()=>{if(st.stage==3&&!st.ack){pub("halo/room1/ack",{by:"caregiver",eta_min:5});st.ack=true;ledgerAck("caregiver");uart("caregiver ACK received: alarm silenced");say("Your caregiver is on the way.");tl.push([ts(),"Caregiver acknowledged"]);ui()}};
+$("pr").onclick=e=>{const p=e.target.dataset.pr;if(!p)return;prec=p=="INT8"?{n:"INT8",fps:52,w:7,m:"-1.4% mAP vs FP16"}:{n:"FP16",fps:28,w:11,m:"baseline"};ui()};
+setInterval(()=>{if(camOn)tally[pose]+=0.5*speed;live()},500);
+let mqttUp=true,evSeq=0,boots=1,dups=0,rej=0,drops=0,lastBs="";
+const seen=new Set(),lg=[],tm={};
+const TM=[["walk","Normal walking and standing"],["sit","Sitting and bending"],["lie","Lying down without a fall"],["fall","Controlled fall-like scenario"],["cancel","Countdown cancellation"],["esc","Alarm escalation"],["ack","Alarm acknowledgement"],["dup","Duplicate MQTT events"],["net","Network disconnect and reconnect"],["cam","Camera loss"],["rb","ESP32 restart"],["bad","Invalid MQTT commands"]];
+function tk(k){tm[k]=1}
+function cur(){return lg.find(e=>!e.res)}
+function bstate(){if(st.blind)return"COMMUNICATION_FAULT";if(st.stage==0)return st.pre!=null?"FALL_SUSPECTED":"NORMAL";if(st.stage<3)return"FALL_SUSPECTED";return st.ack?"ALERT_ACKNOWLEDGED":"ALARM_ACTIVE"}
+function ledgerNew(){const e={id:"evt-"+String(++evSeq).padStart(4,"0"),gen:ts(),rec:ts(),ack:"-",res:null,why:""};lg.push(e);seen.add(e.id);return e}
+function ledgerAck(by){const e=cur();if(e&&e.ack=="-"){e.ack=ts()+" ("+by+")";tk("ack")}}
+function ledgerRes(why){const e=cur();if(e){e.res=ts();e.why=why}}
+function reboot(){boots++;uart("RESET #"+boots+": safe startup, reading persisted event log");const open=cur();st={stage:0,blind:false,since:T,down0:null,lastHB:T,zone:st.zone,extra:st.extra,ack:false};if(open){st.stage=3;uart("open event "+open.id+" found: resuming ALARM_ACTIVE (fail safe, record kept)")}else uart("no open events: NORMAL");tk("rb")}
+$("fdup").onclick=()=>{const e=cur();const id=e?e.id:"evt-"+String(evSeq+1).padStart(4,"0");log("mqtt","["+ts()+"] halo/room1/state (replay) "+JSON.stringify({v:1,id:id,type:"fall_suspected"}));if(seen.has(id)){dups++;uart("duplicate "+id+" ignored, no second alarm");tk("dup")}else uart("unknown event id, no stage change from a replay alone")};
+$("fbad").onclick=()=>{log("mqtt","["+ts()+"] halo/board/command {\"v\":1,\"cmd\":\"format_flash\"}");rej++;uart("REJECTED command 'format_flash': not in allowlist [silence, ping]");tk("bad")};
+$("fsil").onclick=()=>{log("mqtt","["+ts()+"] halo/board/command {\"v\":1,\"cmd\":\"silence\"}");if(st.stage==3&&!st.ack){st.ack=true;ledgerAck("remote");uart("command silence: buzzer off, event retained")}else uart("command silence: nothing to silence")};
+$("fmq").onclick=()=>{mqttUp=!mqttUp;$("fmq").textContent=mqttUp?"Drop MQTT broker":"Restore MQTT broker";uart(mqttUp?"MQTT reconnected":"MQTT broker lost: reconnecting with backoff")};
+$("frb").onclick=reboot;
+function live2(){const b=bstate();const col={NORMAL:"var(--ok)",FALL_SUSPECTED:"var(--warn)",ALARM_ACTIVE:"var(--bad)",ALERT_ACKNOWLEDGED:"var(--calm)",COMMUNICATION_FAULT:"var(--warn)"}[b];
+$("bs").textContent=b;$("bs").style.color=col;
+const led=b=="NORMAL"?"green on":b=="FALL_SUSPECTED"?"yellow on, countdown running":b=="ALARM_ACTIVE"?"red flashing":b=="ALERT_ACKNOWLEDGED"?"red steady, silent":"amber fault pattern";const e=cur();
+$("bd").innerHTML="LED: "+led+"<br>Buzzer: "+(b=="ALARM_ACTIVE"?"sounding":"off")+"<br>MQTT: "+(mqttUp?"connected":"DISCONNECTED")+"<br>Camera: "+(camOn?"ok":"LOST")+"<br>Open event: "+(e?e.id:"none")+"<br>Boots: "+boots+" | duplicates ignored: "+dups+" | commands rejected: "+rej+" | messages lost: "+drops+"<br>Detection-to-actuation latency: measure on hardware";
+$("lg").innerHTML=lg.length?"<table style='width:100%;border-collapse:collapse'><tr><td>id</td><td>generated</td><td>received</td><td>acknowledged</td><td>resolved</td></tr>"+lg.filter(e=>lgf=="all"||(lgf=="open")==!e.res).slice(-6).reverse().map(e=>"<tr><td>"+e.id+"</td><td>"+e.gen+"</td><td>"+e.rec+"</td><td>"+e.ack+"</td><td>"+(e.res?e.res+" ("+e.why+")":"OPEN")+"</td></tr>").join("")+"</table>":"No events yet.";
+$("tm").innerHTML=TM.map(([k,t])=>`<div class="req"><b></b><span>${t}</span><span class="${tm[k]?'pass':'wait'}">${tm[k]?'seen in simulator':'not run'} | hardware: untested</span></div>`).join("")}
+setInterval(()=>{const b=bstate();if(b!=lastBs){lastBs=b;const e=cur();log("mqtt","["+ts()+"] halo/board/state (retained) "+JSON.stringify({v:1,state:b,event:e?e.id:null,boot:boots}))}live2()},500);
+setInterval(()=>log("mqtt","["+ts()+"] halo/system/health "+JSON.stringify({v:1,mqtt:mqttUp?"up":"down",camera:camOn?"ok":"lost",boot:boots,dups:dups,rejected:rej})),5000);
+document.documentElement.dataset.theme="dark";
+let infFps=10,msgs=0,msgsSec=[],loop=[],pubSig="",lgf="all";
+const spark=(a,c)=>{if(a.length<2)return'<span class="cap">Unavailable (collecting)</span>';const m=Math.max(...a,1e-6);return`<svg viewBox="0 0 120 30" style="height:34px"><polyline fill="none" stroke="${c}" stroke-width="2" points="${a.map((v,i)=>(i/(a.length-1)*120)+","+(28-v/m*26)).join(" ")}"/></svg>`};
+const dot=c=>`<span class="dot" style="background:${c}"></span>`;
+$("stg").innerHTML=["Camera capture","Preprocess","Inference (TensorRT)","Postprocess","Event decision","MQTT publish to receive","ESP32 actuation","End to end"].map(n=>`<div class="req" style="grid-template-columns:1fr auto"><span>${n}</span><span class="wait">Unavailable</span></div>`).join("")+`<p class="cap">Stage timings need real timestamps from PipeGen (capture, inference, publish) and the ESP32 (receive, actuate). Add them to the event JSON and subtract on the dashboard.</p>`;
+function kpi(){const b=bstate(),e=cur();const c={NORMAL:"var(--ok)",FALL_SUSPECTED:"var(--warn)",ALARM_ACTIVE:"var(--bad)",ALERT_ACKNOWLEDGED:"var(--calm)",COMMUNICATION_FAULT:"var(--warn)"}[b];
+ const lat=loop.length?loop[loop.length-1].toFixed(2)+" ms":"Unavailable";const hb=Math.max(0,(T-st.lastHB)/1000);
+ const K=[["System state",b,c],["Falls today",tl.filter(x=>x[1].startsWith("Stage 3")).length,""],["Loopback latency (sim)",lat,""],["Camera",camOn?"Streaming":"LOST",camOn?"var(--ok)":"var(--bad)"],["ESP32",st.blind?"Fault":"Heartbeat "+hb.toFixed(1)+" s ago",st.blind?"var(--warn)":"var(--ok)"],["MQTT",mqttUp?"Connected":"Disconnected",mqttUp?"var(--ok)":"var(--bad)"]];
+ $("kp").innerHTML=K.map(([k,v,c])=>`<div class="kpi"><div class="k">${k}</div><div class="v" style="color:${c||'var(--ink)'}">${v}</div></div>`).join("");
+ const deg=st.blind||!mqttUp;$("pSys").innerHTML=dot(deg?"var(--warn)":"var(--ok)")+(deg?"System degraded":"System online");
+ $("pMq").innerHTML=dot(mqttUp?"var(--ok)":"var(--bad)")+"MQTT "+(mqttUp?"up":"down");$("pEsp").innerHTML=dot(st.blind?"var(--warn)":"var(--ok)")+"ESP32 "+(st.blind?"fault":"alive");$("pClk").textContent=new Date().toLocaleTimeString();
+ const em=$("emg");em.className="emg"+(st.stage>0?" on":"");
+ if(st.stage>0){const held=st.down0!=null?(T-st.down0)/1000:0;const x=st.extra||0;
+  em.innerHTML=`<div class="big" style="color:${st.stage==3&&!st.ack?'var(--bad)':'var(--warn)'}">${st.stage<3?'Suspected fall (not confirmed)':st.ack?'Alert acknowledged':'ALARM ACTIVE'}</div><div>Event ${e?e.id:'-'} | received ${e?e.rec:'-'} | ack: ${e?e.ack:'-'}</div>`+(st.stage<3&&st.down0!=null?`<div>Escalates in ${Math.max(0,(st.stage==1?8:25)+x-held).toFixed(1)} s unless cancelled</div>`:"")}
+ $("hl").innerHTML=[["Camera connection",camOn?"ok":"LOST"],["Vision pipeline heartbeat",st.blind?"silent":"ok"],["TensorRT engine","Unavailable (read from PipeGen report)"],["MQTT connection",mqttUp?"connected":"DISCONNECTED"],["ESP32 heartbeat",hb.toFixed(1)+" s ago"],["Last fault",(st.cause||"none")+(st.cause?(st.blind?" (active)":" (recovered)"):"")]].map(([k,v])=>`<div class="req" style="grid-template-columns:1fr auto"><span>${k}</span><span>${v}</span></div>`).join("")}
+$("lf").onclick=e=>{const f=e.target.dataset.f;if(!f)return;lgf=f;[...$("lf").children].forEach(b=>b.classList.toggle("on",b.dataset.f==f));live2()};
+$("fb").onclick=e=>{const f=+e.target.dataset.fps;if(!f)return;infFps=f;[...$("fb").children].forEach(b=>b.classList.toggle("on",+b.dataset.fps==f));$("wd").textContent=(1000/f).toFixed(0)+" ms"};
+$("fsb").onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+setInterval(()=>{msgsSec.push(msgs);msgs=0;if(msgsSec.length>40)msgsSec.shift();$("sp1").innerHTML=spark(loop,"var(--calm)");$("sp2").innerHTML=spark(msgsSec,"var(--ok)")},1000);
+let snd=true,ac,clickT=0,preLat=null;
+function beep(f,d){if(!snd)return;try{ac=ac||new AudioContext();if(ac.state=="suspended")ac.resume();const o=ac.createOscillator(),g=ac.createGain();o.type="square";o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+$("snd").onclick=()=>{snd=!snd;$("snd").textContent="Sound: "+(snd?"on":"off");beep(660,.1)};
+$("cw").oninput=e=>{grace.floor=+e.target.value;$("cwv").textContent=e.target.value+" s";ui()};
+let sirenN=0;
+setInterval(()=>{sirenN++;if(st.stage==3&&!st.ack)beep(sirenN%2?1400:900,.22);else if(st.stage==2){if(sirenN%3==0)beep(880,.15)}else if(st.stage==1&&sirenN%4==0)beep(520,.08)},250);
+const unlock=()=>{try{ac=ac||new AudioContext();ac.resume()}catch(e){}};addEventListener("pointerdown",unlock);addEventListener("keydown",unlock);
+$("tst").onclick=()=>{[900,1400,900,1400].forEach((f,i)=>setTimeout(()=>beep(f,.22),i*250))};
+let vo=true,rec=null,listening=false;
+function vlog(s){const d=$("vl");d.innerHTML+=ts()+" "+s.replace(/</g,"&lt;")+"<br>";d.scrollTop=d.scrollHeight}
+function say(t){vlog("Halo: "+t);if(!vo||!window.speechSynthesis)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.volume=1;speechSynthesis.speak(u)}catch(e){}}
+function vcmd(txt){const t=txt.toLowerCase();vlog("Person: "+txt);
+ if(/stop|silence|quiet/.test(t)){if(st.stage==3&&!st.ack){st.ack=true;ledgerAck("voice");uart("voice: alarm silenced, event retained");say("Alarm silenced. The record is kept.")}else say("There is no active alarm.")}
+ else if(/help|emergency|hurt|pain/.test(t)){if(st.stage<3){if(!cur())ledgerNew();st.pre=null;go(3);uart("voice: person asked for HELP, escalating now")}else say("Help is already being called.")}
+ else if(/okay|fine|cancel|alright|\bok\b/.test(t)){if(st.stage>0&&st.stage<3){cancel("voice");say("Glad you are okay.")}else if(st.stage==3)say("The alarm is active. Say stop alarm to silence it.");else say("Okay.")}
+ else say("Sorry. Say I'm okay, help, or stop alarm.")}
+function startRec(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$("vs").textContent="Speech recognition is not supported here. Use the typed box.";return}
+ if(listening){rec.stop();return}
+ rec=new SR();rec.lang="en-US";rec.continuous=true;rec.interimResults=false;
+ rec.onresult=e=>vcmd(e.results[e.results.length-1][0].transcript);
+ rec.onerror=e=>{$("vs").textContent="Mic error: "+e.error+". Use the typed box."};
+ rec.onend=()=>{listening=false;$("mic").textContent="Start listening"};
+ try{rec.start();listening=true;$("mic").textContent="Stop listening";$("vs").textContent="Listening..."}catch(e){$("vs").textContent="Mic unavailable. Use the typed box."}}
+$("vo").onclick=()=>{vo=!vo;$("vo").textContent="Voice: "+(vo?"on":"off");$("vo").classList.toggle("on",vo);if(vo)say("Voice assistant on.");else if(window.speechSynthesis)speechSynthesis.cancel()};
+$("mic").onclick=startRec;
+const sendV=()=>{const v=$("vt").value.trim();if(v){vcmd(v);$("vt").value=""}};
+$("vsend").onclick=sendV;$("vt").onkeydown=e=>{if(e.key=="Enter")sendV()};
+document.onkeydown=e=>{if(e.target.tagName=="INPUT")return;const m={"1":"standing","2":"sitting","3":"down"}[e.key];if(m)document.querySelector('[data-p="'+m+'"]').click();if(e.key=="b"||e.key=="B")$("press").click();if(e.key=="w"||e.key=="W")$("wave").click()};
+setInterval(()=>{kpi();$("rt2").textContent=preLat!=null?"Reaction to pose change: "+preLat+" ms (simulator timing)":""},500);
+ui();drawSk();renderReq();live2();kpi();uart("boot: ESP32 Halo ready, subscribed to halo/+/state");
+</script></main></body></html>
